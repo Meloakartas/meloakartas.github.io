@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DataGaffer — Sélections xG</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,.08);
+      --panel-2: rgba(255,255,255,.12);
+      --border: rgba(255,255,255,.14);
+      --text: #eef2ff;
+      --muted: #aab3d0;
+      --good: #22c55e;
+      --good-bg: rgba(34,197,94,.16);
+      --warn: #fb923c;
+      --warn-bg: rgba(251,146,60,.16);
+      --bad: #fb7185;
+      --bad-bg: rgba(251,113,133,.14);
+      --blue: #60a5fa;
+      --blue-bg: rgba(96,165,250,.16);
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(96,165,250,.25), transparent 28%),
+        radial-gradient(circle at 90% 5%, rgba(34,197,94,.18), transparent 25%),
+        linear-gradient(135deg, #080b16 0%, #10172a 48%, #0b1020 100%);
+      color: var(--text);
+    }
+
+    .app {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 42px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 42px);
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.45;
+    }
+
+    .toolbar {
+      position: static;
+      padding: 12px 0;
+      background: transparent;
+      display: grid;
+      gap: 10px;
+    }
+
+    .day-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .day-btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 12px 14px;
+      color: var(--text);
+      background: var(--panel);
+      cursor: pointer;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      font-weight: 750;
+    }
+
+    .day-btn:hover { transform: translateY(-1px); background: var(--panel-2); }
+    .day-btn.active { border-color: rgba(96,165,250,.8); background: var(--blue-bg); }
+
+    .status-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+
+
+    .bankroll-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.07);
+      border-radius: 18px;
+      padding: 10px 12px;
+    }
+
+    .bankroll-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 850;
+    }
+
+    .bankroll-input {
+      width: 150px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      padding: 10px 13px;
+      outline: none;
+      font: inherit;
+      font-weight: 900;
+    }
+
+    .bankroll-input:focus { border-color: rgba(96,165,250,.9); box-shadow: 0 0 0 3px rgba(96,165,250,.13); }
+
+    .bankroll-hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .mini-card {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 8px 12px;
+    }
+
+    .matches {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .match {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.055));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .match.selected {
+      border-color: rgba(34,197,94,.45);
+    }
+
+    .match.not-selected {
+      border-color: rgba(251,146,60,.24);
+    }
+
+    .match-header {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      color: inherit;
+      background: transparent;
+      padding: 16px;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .left {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .teams {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 850;
+      font-size: 17px;
+    }
+
+    .team {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .team span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logo { width: 24px; height: 24px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,.08); }
+    .vs { color: var(--muted); font-weight: 600; }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 850;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge.good { color: #bbf7d0; background: var(--good-bg); border-color: rgba(34,197,94,.32); }
+    .badge.warn { color: #fed7aa; background: var(--warn-bg); border-color: rgba(251,146,60,.35); }
+    .badge.blue { color: #bfdbfe; background: var(--blue-bg); border-color: rgba(96,165,250,.35); }
+    .badge.bad { color: #fecdd3; background: var(--bad-bg); border-color: rgba(251,113,133,.30); }
+    .badge.selection { text-transform: uppercase; letter-spacing: .03em; }
+
+    .chevron {
+      color: var(--muted);
+      font-size: 20px;
+      margin-left: 4px;
+      transition: transform .18s ease;
+    }
+
+    .match.open .chevron { transform: rotate(180deg); }
+
+    .match-body {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 16px;
+      background: rgba(0,0,0,.14);
+    }
+
+    .match.open .match-body { display: grid; gap: 14px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .stat .label { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+    .stat .value { font-size: 20px; font-weight: 900; }
+
+    .bets {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bet-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 1.15fr) repeat(3, minmax(74px, .5fr)) minmax(105px, .6fr) minmax(100px, .6fr) repeat(3, minmax(92px, .6fr));
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,.065);
+    }
+
+    .bet-name { font-weight: 900; }
+    .bet-sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .cell-label { display: none; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 800; }
+
+    .odds-input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      padding: 10px 11px;
+      outline: none;
+      font: inherit;
+      font-weight: 850;
+    }
+
+    .odds-input:focus { border-color: rgba(96,165,250,.9); box-shadow: 0 0 0 3px rgba(96,165,250,.13); }
+
+    .exchange-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 42px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 9px 10px;
+      font-size: 13px;
+      font-weight: 850;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .exchange-label input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--blue);
+    }
+
+    .exchange-note {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
+      line-height: 1.25;
+    }
+
+    .metric-pill {
+      justify-self: start;
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .ev-positive { color: #bbf7d0; background: var(--good-bg); }
+    .ev-limit { color: #fed7aa; background: var(--warn-bg); }
+    .ev-negative { color: #fecdd3; background: var(--bad-bg); }
+    .ev-neutral { color: #bfdbfe; background: var(--blue-bg); }
+
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255,255,255,.05);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 820px) {
+      .app { width: min(100% - 18px, 1120px); padding-top: 14px; }
+      .day-buttons { grid-template-columns: 1fr; }
+      .match-header { grid-template-columns: 1fr; }
+      .badges { justify-content: flex-start; }
+      .teams { font-size: 15px; }
+      .logo { width: 22px; height: 22px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .bet-row {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+      }
+      .bet-title { grid-column: 1 / -1; }
+      .cell-label { display: block; }
+  
+
+    .bankroll-panel { align-items: stretch; }
+      .bankroll-label { width: 100%; justify-content: space-between; }
+      .bankroll-input { width: 150px; }
+      .metric-pill { justify-self: stretch; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>DataGaffer — sélections xG</h1>
+      <p>Les matchs sont filtrés avec tes règles validées : Over 1.5, Under 3.5, BTTS Yes et Over 2.5. Les cotes sont préremplies si elles existent dans le JSON, mais tu peux les modifier.</p>
+    </section>
+
+    <section class="toolbar">
+      <div class="day-buttons">
+        <button class="day-btn" data-day="yesterday">← Jour précédent</button>
+        <button class="day-btn active" data-day="today">Aujourd’hui</button>
+        <button class="day-btn" data-day="tomorrow">Prochain jour →</button>
+      </div>
+      <div class="bankroll-panel">
+        <label class="bankroll-label" for="bankrollInput">
+          Bankroll
+          <input id="bankrollInput" class="bankroll-input" inputmode="decimal" type="text" value="100" aria-label="Montant de bankroll">
+        </label>
+        <span class="bankroll-hint">Mise conseillée = 50% Kelly. Si “exchange” est coché, le calcul retire 3% sur le gain net.</span>
+      </div>
+      <div class="status-row">
+        <span id="status" class="mini-card">Chargement…</span>
+        <span id="summary" class="mini-card">—</span>
+      </div>
+    </section>
+
+    <section id="matches" class="matches"></section>
+
+    <p class="footer-note">
+EV = probabilité historique du bucket × cote − 1. Le % xG/Dixon-Coles sert uniquement à entrer dans un bucket. Si “exchange” est coché, la cote nette devient 1 + ((cote − 1) × 0,97), car les 3% sont pris uniquement sur le gain. Kelly complet = ((gain net × p bucket) − (1 − p bucket)) / gain net. La mise affichée utilise 50% Kelly. Rouge = EV négatif, orange = entre 0% et +3%, vert = au-dessus de +3%.
+    </p>
+  </main>
+
+  <script>
+    const URLS = {
+      yesterday: "https://www.datagaffer.com/fixtures_yesterday.json",
+      today: "https://www.datagaffer.com/fixtures.json",
+      tomorrow: "https://www.datagaffer.com/fixtures_tomorrow.json"
+    };
+
+    const CORS_PROXY_NAME = "corsproxy.io";
+    const CORS_PROXY_URL = url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+
+    const DIXON_COLES_RHO = -0.13;
+    const SCORE_MAX = 20;
+
+    const RULES = [
+      {
+        id: "over_1_5_60_65",
+        label: "Over 1.5",
+        pctKey: "over_1_5_pct",
+        oddsKey: "over_1_5",
+        minOdds: 1.45,
+        bucketProbability: 71.52,
+        match: p => p >= 60 && p < 65,
+        bucket: "60-65%"
+      },
+      {
+        id: "over_1_5_65_70",
+        label: "Over 1.5",
+        pctKey: "over_1_5_pct",
+        oddsKey: "over_1_5",
+        minOdds: 1.35,
+        bucketProbability: 76.28,
+        match: p => p >= 65 && p < 70,
+        bucket: "65-70%"
+      },
+      {
+        id: "over_1_5_70_75",
+        label: "Over 1.5",
+        pctKey: "over_1_5_pct",
+        oddsKey: "over_1_5",
+        minOdds: 1.35,
+        bucketProbability: 76.68,
+        match: p => p >= 70 && p <= 75,
+        bucket: "70-75%"
+      },
+      {
+        id: "under_3_5_45_50",
+        label: "Under 3.5",
+        pctKey: "under_3_5_pct",
+        oddsKey: "under_3_5",
+        minOdds: 1.70,
+        bucketProbability: 61.22,
+        match: p => p >= 45 && p < 50,
+        bucket: "45-50%"
+      },
+      {
+        id: "under_3_5_50_55",
+        label: "Under 3.5",
+        pctKey: "under_3_5_pct",
+        oddsKey: "under_3_5",
+        minOdds: 1.70,
+        bucketProbability: 60.45,
+        match: p => p >= 50 && p < 55,
+        bucket: "50-55%"
+      },
+      {
+        id: "under_3_5_55_60",
+        label: "Under 3.5",
+        pctKey: "under_3_5_pct",
+        oddsKey: "under_3_5",
+        minOdds: 1.60,
+        bucketProbability: 65.05,
+        match: p => p >= 55 && p < 60,
+        bucket: "55-60%"
+      },
+      {
+        id: "under_3_5_60_65",
+        label: "Under 3.5",
+        pctKey: "under_3_5_pct",
+        oddsKey: "under_3_5",
+        minOdds: 1.47,
+        bucketProbability: 70.65,
+        match: p => p >= 60 && p <= 65,
+        bucket: "60-65%"
+      },
+      {
+        id: "btts_yes_35_40",
+        label: "BTTS Yes",
+        pctKey: "btts_pct",
+        oddsKey: "btts_yes",
+        minOdds: 2.25,
+        bucketProbability: 45.60,
+        match: p => p >= 35 && p < 40,
+        bucket: "35-40%"
+      },
+      {
+        id: "btts_yes_40_45",
+        label: "BTTS Yes",
+        pctKey: "btts_pct",
+        oddsKey: "btts_yes",
+        minOdds: 2.00,
+        bucketProbability: 51.58,
+        match: p => p >= 40 && p < 45,
+        bucket: "40-45%"
+      },
+      {
+        id: "btts_yes_45_50",
+        label: "BTTS Yes",
+        pctKey: "btts_pct",
+        oddsKey: "btts_yes",
+        minOdds: 1.90,
+        bucketProbability: 55.16,
+        match: p => p >= 45 && p <= 50,
+        bucket: "45-50%"
+      },
+      {
+        id: "over_2_5_35_40",
+        label: "Over 2.5",
+        pctKey: "over_2_5_pct",
+        oddsKey: "over_2_5",
+        minOdds: 2.25,
+        bucketProbability: 46.25,
+        match: p => p >= 35 && p < 40,
+        bucket: "35-40%"
+      },
+      {
+        id: "over_2_5_40_45",
+        label: "Over 2.5",
+        pctKey: "over_2_5_pct",
+        oddsKey: "over_2_5",
+        minOdds: 2.00,
+        bucketProbability: 51.44,
+        match: p => p >= 40 && p < 45,
+        bucket: "40-45%"
+      },
+      {
+        id: "over_2_5_45_50",
+        label: "Over 2.5",
+        pctKey: "over_2_5_pct",
+        oddsKey: "over_2_5",
+        minOdds: 2.00,
+        bucketProbability: 51.70,
+        match: p => p >= 45 && p < 50,
+        bucket: "45-50%"
+      },
+      {
+        id: "over_2_5_50_55",
+        label: "Over 2.5",
+        pctKey: "over_2_5_pct",
+        oddsKey: "over_2_5",
+        minOdds: 1.84,
+        bucketProbability: 55.95,
+        match: p => p >= 50 && p <= 55,
+        bucket: "50-55%"
+      }
+    ];
+
+    const $matches = document.getElementById("matches");
+    const $status = document.getElementById("status");
+    const $summary = document.getElementById("summary");
+    const $bankrollInput = document.getElementById("bankrollInput");
+    const dayButtons = [...document.querySelectorAll(".day-btn")];
+
+    let openFixtureId = null;
+    let currentDay = "today";
+
+    const savedBankroll = localStorage.getItem("datagaffer_bankroll");
+    if (savedBankroll) $bankrollInput.value = savedBankroll;
+
+    $bankrollInput.addEventListener("input", () => {
+      localStorage.setItem("datagaffer_bankroll", $bankrollInput.value);
+      updateAllBetMetrics();
+    });
+
+    dayButtons.forEach(btn => {
+      btn.addEventListener("click", () => loadDay(btn.dataset.day));
+    });
+
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return NaN;
+      if (typeof value === "number") return value;
+      return Number(String(value).replace(",", "."));
+    }
+
+    function formatPct(value) {
+      const n = toNumber(value);
+      return Number.isFinite(n) ? `${n.toFixed(1)}%` : "—";
+    }
+
+    function formatOdds(value) {
+      const n = toNumber(value);
+      return Number.isFinite(n) ? n.toFixed(2).replace(/\.00$/, "") : "";
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "Date inconnue";
+      const d = new Date(iso);
+      return new Intl.DateTimeFormat("fr-FR", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(d);
+    }
+
+    function poissonPmf(k, lambda) {
+      let factorial = 1;
+      for (let i = 2; i <= k; i++) factorial *= i;
+      return Math.exp(-lambda) * Math.pow(lambda, k) / factorial;
+    }
+
+    function dixonColesTau(homeGoals, awayGoals, homeXg, awayXg) {
+      if (homeGoals === 0 && awayGoals === 0) return 1 - (homeXg * awayXg * DIXON_COLES_RHO);
+      if (homeGoals === 0 && awayGoals === 1) return 1 + (homeXg * DIXON_COLES_RHO);
+      if (homeGoals === 1 && awayGoals === 0) return 1 + (awayXg * DIXON_COLES_RHO);
+      if (homeGoals === 1 && awayGoals === 1) return 1 - DIXON_COLES_RHO;
+      return 1;
+    }
+
+    function fallbackPercentsFromXg(fixture) {
+      const homeXg = toNumber(fixture?.sim_stats?.xg?.home);
+      const awayXg = toNumber(fixture?.sim_stats?.xg?.away);
+      if (!Number.isFinite(homeXg) || !Number.isFinite(awayXg)) return {};
+
+      const homePmfs = Array.from({ length: SCORE_MAX + 1 }, (_, i) => poissonPmf(i, homeXg));
+      const awayPmfs = Array.from({ length: SCORE_MAX + 1 }, (_, i) => poissonPmf(i, awayXg));
+
+      let totalMass = 0;
+      let homeWin = 0;
+      let draw = 0;
+      let awayWin = 0;
+      let under15 = 0;
+      let under25 = 0;
+      let under35 = 0;
+      let btts = 0;
+
+      for (let h = 0; h <= SCORE_MAX; h++) {
+        for (let a = 0; a <= SCORE_MAX; a++) {
+          const probability = homePmfs[h] * awayPmfs[a] * dixonColesTau(h, a, homeXg, awayXg);
+          const goals = h + a;
+
+          totalMass += probability;
+          if (h > a) homeWin += probability;
+          if (h === a) draw += probability;
+          if (a > h) awayWin += probability;
+          if (goals <= 1) under15 += probability;
+          if (goals <= 2) under25 += probability;
+          if (goals <= 3) under35 += probability;
+          if (h > 0 && a > 0) btts += probability;
+        }
+      }
+
+      if (!Number.isFinite(totalMass) || totalMass <= 0) return {};
+      const pct = value => (value / totalMass) * 100;
+
+      return {
+        home_win_pct: pct(homeWin),
+        draw_pct: pct(draw),
+        away_win_pct: pct(awayWin),
+        over_1_5_pct: pct(totalMass - under15),
+        under_1_5_pct: pct(under15),
+        over_2_5_pct: pct(totalMass - under25),
+        under_2_5_pct: pct(under25),
+        over_3_5_pct: pct(totalMass - under35),
+        under_3_5_pct: pct(under35),
+        btts_pct: pct(btts),
+        btts_no_pct: pct(totalMass - btts),
+        dc_1x_pct: pct(homeWin + draw),
+        dc_12_pct: pct(homeWin + awayWin),
+        dc_x2_pct: pct(draw + awayWin)
+      };
+    }
+
+    function getPercents(fixture) {
+      return fallbackPercentsFromXg(fixture);
+    }
+
+    function getSelections(fixture) {
+      const percents = getPercents(fixture);
+      const selected = [];
+
+      for (const rule of RULES) {
+        const p = toNumber(percents[rule.pctKey]);
+        if (Number.isFinite(p) && rule.match(p)) {
+          selected.push({
+            ...rule,
+            probability: p,
+            decimalProbability: p / 100,
+            bucketProbability: rule.bucketProbability,
+            decimalBucketProbability: rule.bucketProbability / 100,
+            bookOdd: toNumber(fixture?.book_odds?.[rule.oddsKey])
+          });
+        }
+      }
+
+      return selected;
+    }
+
+    function getTeamName(fixture, side) {
+      return fixture?.[side]?.name || fixture?.[`${side}_name`] || (side === "home" ? "Domicile" : "Extérieur");
+    }
+
+    function getLogo(fixture, side) {
+      return fixture?.[side]?.logo || fixture?.[`${side}_logo`] || "";
+    }
+
+    function renderMatches(fixtures) {
+      const sorted = [...fixtures].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+      const selectedCount = sorted.filter(f => getSelections(f).length > 0).length;
+
+      $summary.textContent = `${sorted.length} match(s) • ${selectedCount} sélectionné(s)`;
+
+      if (!sorted.length) {
+        $matches.innerHTML = `<div class="empty">Aucun match trouvé pour ce jour.</div>`;
+        return;
+      }
+
+      $matches.innerHTML = sorted.map(renderMatch).join("");
+
+      document.querySelectorAll(".match-header").forEach(header => {
+        header.addEventListener("click", () => {
+          const fixtureId = header.closest(".match").dataset.fixtureId;
+          toggleAccordion(fixtureId);
+        });
+      });
+
+      document.querySelectorAll(".odds-input").forEach(input => {
+        input.addEventListener("input", () => updateBetMetrics(input));
+        updateBetMetrics(input);
+      });
+
+      document.querySelectorAll(".exchange-input").forEach(checkbox => {
+        checkbox.addEventListener("change", () => {
+          const row = checkbox.closest(".bet-row");
+          const input = row?.querySelector(".odds-input");
+          if (input) updateBetMetrics(input);
+        });
+      });
+    }
+
+    function renderMatch(fixture) {
+      const selections = getSelections(fixture);
+      const fixtureId = String(fixture.fixture_id || `${fixture.date}-${getTeamName(fixture, "home")}-${getTeamName(fixture, "away")}`);
+      const home = getTeamName(fixture, "home");
+      const away = getTeamName(fixture, "away");
+      const homeLogo = getLogo(fixture, "home");
+      const awayLogo = getLogo(fixture, "away");
+      const league = fixture?.league?.name || fixture?.league || "Ligue inconnue";
+      const round = fixture?.round || "";
+      const xgHome = fixture?.sim_stats?.xg?.home ?? "—";
+      const xgAway = fixture?.sim_stats?.xg?.away ?? "—";
+      const xgTotal = fixture?.sim_stats?.xg?.total ?? "—";
+      const percents = getPercents(fixture);
+
+      const isSelected = selections.length > 0;
+      const badges = isSelected
+        ? `<span class="badge good selection">SÉLECTIONNÉ</span>` + selections.map(s => `<span class="badge blue">${s.label} ≥ ${s.minOdds.toFixed(2)}</span>`).join("")
+        : `<span class="badge warn selection">NON SÉLECTIONNÉ</span>`;
+
+      const betsHtml = selections.length
+        ? selections.map(s => renderBetRow(s)).join("")
+        : `<div class="empty">Aucun des buckets retenus ne matche ce match.</div>`;
+
+      return `
+        <article class="match ${isSelected ? "selected" : "not-selected"}" data-fixture-id="${escapeAttr(fixtureId)}">
+          <button class="match-header" type="button">
+            <div class="left">
+              <div class="meta">
+                <span>${escapeHtml(formatDate(fixture.date))}</span>
+                <span>•</span>
+                <span>${escapeHtml(league)}</span>
+                ${round ? `<span>•</span><span>${escapeHtml(round)}</span>` : ""}
+              </div>
+              <div class="teams">
+                <span class="team">${homeLogo ? `<img class="logo" src="${escapeAttr(homeLogo)}" alt="">` : ""}<span>${escapeHtml(home)}</span></span>
+                <span class="vs">vs</span>
+                <span class="team">${awayLogo ? `<img class="logo" src="${escapeAttr(awayLogo)}" alt="">` : ""}<span>${escapeHtml(away)}</span></span>
+              </div>
+            </div>
+            <div class="badges">${badges}<span class="chevron">⌄</span></div>
+          </button>
+
+          <div class="match-body">
+            <div class="stats-grid">
+              ${renderStat("xG domicile", xgHome)}
+              ${renderStat("xG extérieur", xgAway)}
+              ${renderStat("xG total", xgTotal)}
+              ${renderStat("BTTS modèle", formatPct(percents.btts_pct))}
+              ${renderStat("Over 1.5", formatPct(percents.over_1_5_pct))}
+              ${renderStat("Over 2.5", formatPct(percents.over_2_5_pct))}
+              ${renderStat("Under 3.5", formatPct(percents.under_3_5_pct))}
+              ${renderStat("Over 3.5", formatPct(percents.over_3_5_pct))}
+            </div>
+            <div class="bets">${betsHtml}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderStat(label, value) {
+      return `
+        <div class="stat">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${escapeHtml(String(value))}</div>
+        </div>
+      `;
+    }
+
+    function renderBetRow(selection) {
+      const odd = Number.isFinite(selection.bookOdd) ? formatOdds(selection.bookOdd) : "";
+      return `
+        <div class="bet-row">
+          <div class="bet-title">
+            <div class="bet-name">${escapeHtml(selection.label)}</div>
+            <div class="bet-sub">Bucket ${selection.bucket} • cote mini ${selection.minOdds.toFixed(2)}</div>
+          </div>
+          <div>
+            <div class="cell-label">Proba EV</div>
+            <div class="num">${selection.bucketProbability.toFixed(2)}%</div>
+            <div class="bet-sub">modèle ${selection.probability.toFixed(1)}%</div>
+          </div>
+          <div>
+            <div class="cell-label">Cote mini</div>
+            <div class="num">${selection.minOdds.toFixed(2)}</div>
+          </div>
+          <div>
+            <div class="cell-label">Cote</div>
+            <input class="odds-input" inputmode="decimal" placeholder="Cote" value="${escapeAttr(odd)}" data-prob="${selection.decimalBucketProbability}" data-min-odds="${selection.minOdds}" data-model-prob="${selection.decimalProbability}">
+          </div>
+          <div>
+            <div class="cell-label">Exchange</div>
+            <label class="exchange-label">
+              <input class="exchange-input" type="checkbox" aria-label="Exchange avec 3% de taxe sur les gains">
+              exchange
+            </label>
+          </div>
+          <div>
+            <div class="cell-label">Statut</div>
+            <span class="badge odds-status ${Number.isFinite(selection.bookOdd) && selection.bookOdd >= selection.minOdds ? "good" : "warn"}">
+              ${Number.isFinite(selection.bookOdd) ? (selection.bookOdd >= selection.minOdds ? "Cote OK" : "Cote trop basse") : "À saisir"}
+            </span>
+          </div>
+          <div>
+            <div class="cell-label">EV</div>
+            <span class="metric-pill ev-pill ev-negative">EV —</span>
+          </div>
+          <div>
+            <div class="cell-label">Kelly 50%</div>
+            <span class="metric-pill kelly-pill ev-neutral">—</span>
+          </div>
+          <div>
+            <div class="cell-label">Mise</div>
+            <span class="metric-pill stake-pill ev-neutral">—</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleAccordion(fixtureId) {
+      document.querySelectorAll(".match").forEach(match => {
+        const shouldOpen = match.dataset.fixtureId === fixtureId && openFixtureId !== fixtureId;
+        match.classList.toggle("open", shouldOpen);
+      });
+      openFixtureId = openFixtureId === fixtureId ? null : fixtureId;
+    }
+
+    function getBankroll() {
+      const bankroll = toNumber($bankrollInput.value);
+      return Number.isFinite(bankroll) && bankroll > 0 ? bankroll : 0;
+    }
+
+    function formatMoney(value) {
+      if (!Number.isFinite(value)) return "—";
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: value >= 10 ? 0 : 2,
+        maximumFractionDigits: value >= 10 ? 0 : 2
+      }).format(value);
+    }
+
+    function updateAllBetMetrics() {
+      document.querySelectorAll(".odds-input").forEach(updateBetMetrics);
+    }
+
+    function updateBetMetrics(input) {
+      const row = input.closest(".bet-row");
+      const evPill = row.querySelector(".ev-pill");
+      const kellyPill = row.querySelector(".kelly-pill");
+      const stakePill = row.querySelector(".stake-pill");
+      const statusPill = row.querySelector(".odds-status");
+      const exchangeInput = row.querySelector(".exchange-input");
+
+      const odd = toNumber(input.value);
+      const p = toNumber(input.dataset.prob);
+      const minOdds = toNumber(input.dataset.minOdds);
+      const bankroll = getBankroll();
+      const isExchange = Boolean(exchangeInput?.checked);
+      const commission = isExchange ? 0.03 : 0;
+
+      if (!Number.isFinite(odd) || !Number.isFinite(p) || odd <= 1) {
+        evPill.textContent = "EV —";
+        evPill.className = "metric-pill ev-pill ev-negative";
+        kellyPill.textContent = "—";
+        kellyPill.className = "metric-pill kelly-pill ev-neutral";
+        stakePill.textContent = "—";
+        stakePill.className = "metric-pill stake-pill ev-neutral";
+        statusPill.textContent = "À saisir";
+        statusPill.className = "badge odds-status warn";
+        return;
+      }
+
+      const grossProfit = odd - 1;
+      const netProfit = grossProfit * (1 - commission);
+      const effectiveOdd = 1 + netProfit;
+      const isAboveMin = effectiveOdd >= minOdds;
+
+      statusPill.textContent = isAboveMin
+        ? (isExchange ? "Cote nette OK" : "Cote OK")
+        : (isExchange ? "Nette trop basse" : "Cote trop basse");
+      statusPill.className = "badge odds-status " + (isAboveMin ? "good" : "warn");
+
+      const ev = (p * netProfit) - (1 - p);
+      const evPct = ev * 100;
+      evPill.textContent = `${evPct >= 0 ? "+" : ""}${evPct.toFixed(2)}%`;
+      evPill.title = `${isExchange ? `Cote nette après 3% sur gains : ${effectiveOdd.toFixed(3)} • ` : ""}EV calculée avec la proba historique du bucket`;
+      evPill.className = "metric-pill ev-pill " + (evPct >= 3 ? "ev-positive" : evPct >= 0 ? "ev-limit" : "ev-negative");
+
+      const q = 1 - p;
+      const fullKelly = netProfit > 0 ? ((netProfit * p) - q) / netProfit : 0;
+      const halfKelly = Math.max(0, fullKelly * 0.5);
+      const stake = bankroll * halfKelly;
+
+      kellyPill.textContent = `${(halfKelly * 100).toFixed(2)}%`;
+      kellyPill.title = isExchange ? `Kelly calculé avec gain net ${netProfit.toFixed(3)} par unité mise` : "";
+      kellyPill.className = "metric-pill kelly-pill " + (halfKelly > 0 ? "ev-positive" : "ev-negative");
+
+      stakePill.textContent = formatMoney(stake);
+      stakePill.className = "metric-pill stake-pill " + (stake > 0 ? "ev-positive" : "ev-negative");
+    }
+
+    function normalizeFixturesPayload(data) {
+      return Array.isArray(data) ? data : (data?.fixtures || data?.data || []);
+    }
+
+    function renderLoadedData(data, label) {
+      const fixtures = normalizeFixturesPayload(data);
+      $status.textContent = label;
+      renderMatches(fixtures);
+    }
+
+    async function fetchWithCorsproxy(targetUrl) {
+      $status.textContent = `Chargement via ${CORS_PROXY_NAME}…`;
+      const response = await fetch(CORS_PROXY_URL(targetUrl), { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }
+
+    async function loadDay(day) {
+      currentDay = day;
+      openFixtureId = null;
+      dayButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.day === day));
+      $status.textContent = "Chargement…";
+      $summary.textContent = "—";
+      $matches.innerHTML = `<div class="empty">Récupération des matchs…</div>`;
+
+      try {
+        const targetUrl = URLS[day];
+        const data = await fetchWithCorsproxy(targetUrl);
+        renderLoadedData(data, sourceLabel(day));
+      } catch (error) {
+        console.error(error);
+        $status.textContent = "Erreur de chargement";
+        $summary.textContent = "—";
+        $matches.innerHTML = `
+          <div class="empty">
+            Impossible de charger les matchs automatiquement.<br><br>
+            corsproxy.io n'a pas répondu ou ton navigateur bloque les appels depuis le fichier local.<br>
+            URL demandée : <code>${escapeHtml(URLS[day])}</code><br><br>
+            La solution la plus fiable reste d'héberger ce fichier HTML sur GitHub Pages / Netlify / Vercel pour avoir une vraie origine HTTPS, sans serveur à lancer.
+          </div>
+        `;
+      }
+    }
+
+    function sourceLabel(day) {
+      if (day === "yesterday") return "Jour précédent";
+      if (day === "tomorrow") return "Prochain jour";
+      return "Aujourd’hui";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    loadDay("today");
+  </script>
+</body>
+</html>
